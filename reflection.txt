@@ -1,0 +1,11 @@
+We would love to hear how this project went for you!
+
+You can write anything you like, but here are some things we would love to hear
+about:
+
+* Did you finish all of the milestones? What did/didn’t you attempt? Are there any remaining bugs that you’re aware of?
+* What did you like about this assignment? What did you not like about it?
+* Were there any parts you got stuck on?
+* Did you try anything to improve performance?
+* If you were continuing to work on this project, what might be a next thing you would implement? (Additional features? A way to improve performance?)
+* What surprised you? What did you learn?
