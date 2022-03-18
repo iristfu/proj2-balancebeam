@@ -115,7 +115,7 @@ fn main() {
     };
     log::info!("Listening for requests on {}", options.bind);
 
-    let state = ProxyState {
+    let mut state = ProxyState {
         upstream_addresses: options.upstream,
         active_health_check_interval: options.active_health_check_interval,
         active_health_check_path: options.active_health_check_path,
@@ -127,7 +127,7 @@ fn main() {
     for stream in listener.incoming() {
         if let Ok(stream) = stream {
             // Handle the connection!
-            handle_connection(stream, &state);
+            handle_connection(stream, &mut state);
         }
     }
 }
@@ -151,19 +151,23 @@ fn select_upstream(upstreams: &Vec<String>) -> Option<String> {
 
 /// Attempts to connect to an upstream server, returning the connection (TcpStream) if successful,
 /// or an Error if not.
-fn connect_to_upstream(state: &ProxyState) -> Result<TcpStream> {
-    let upstream_ip = select_upstream(&state.upstream_addresses)
-        .ok_or(ErrorKind::NoUpstreamServers)?;
+fn connect_to_upstream(state: &mut ProxyState) -> Result<TcpStream> {
+   loop {
+        let upstream_ip = select_upstream(&state.upstream_addresses).ok_or(ErrorKind::NoUpstreamServers)?;
     // Try establishing a connection. Return the Result (which either contains the established
     // connection, or an error)
-    let result = TcpStream::connect(&upstream_ip).map_err(Error::from);
-    if let Err(err) = &result {
-        log::error!("Failed to connect to upstream {}: {}", upstream_ip, err);
-        // TODO: implement failover (milestone 1)
-        // Note: Vec::retain is helpful for removing a value from a vector:
-        //     vec.retain(|val| *val != valueToRemove);
-    }
-    result
+       let result = TcpStream::connect(&upstream_ip).map_err(Error::from);
+       if let Err(err) = &result {
+          log::error!("Failed to connect to upstream {}: {}", upstream_ip, err);
+          // TODO: implement failover (milestone 1)
+          // Note: Vec::retain is helpful for removing a value from a vector:
+          //     vec.retain(|val| *val != valueToRemove);
+          state.upstream_addresses.retain(|val| *val != upstream_ip); // remove upstream_ip from upstream_addresses
+          continue;
+        
+        }
+        return result;
+   }
 }
 
 /// Given a TcpStream that is connected to a client, sends an HTTP response back to that client.
@@ -184,7 +188,7 @@ fn send_response(client_conn: &mut TcpStream, response: &http::Response<Vec<u8>>
 ///   * Sends the response back to the client
 ///
 ///   Rate limiting should be implemented here as well.
-fn handle_connection(mut client_conn: TcpStream, state: &ProxyState) {
+fn handle_connection(mut client_conn: TcpStream, state: &mut ProxyState) {
     let client_ip = client_conn.peer_addr().unwrap().ip().to_string();
     log::info!("Connection received from {}", client_ip);
 
